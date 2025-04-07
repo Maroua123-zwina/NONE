@@ -1,5 +1,3 @@
-# NONE
-ProjectAi
 import pandas as pd
 import numpy as np
 import io
@@ -261,7 +259,7 @@ df_analysis.dropna(inplace=True)
 # Select features for LSTM
 # Include lagged SPI, lagged Precip, lagged NDVI, lagged SM. Exclude current Precip/NDVI/SM
 # as they wouldn't be known when predicting the current month's SPI.
-features = [col for col in df_analysis.columns if col.endswith(f'_lag_{i}') for i in range(1, n_lags + 1)]
+features = [col for i in range(1, n_lags + 1) for col in df_analysis.columns if col.endswith(f'lag_{i}')]
 # features += ['month_sin', 'month_cos'] # Add time features if used
 print(f"\nFeatures used for LSTM ({len(features)}): {features}")
 
@@ -341,7 +339,7 @@ test_residuals = y_test_orig.flatten() - lstm_pred_test.flatten()
 
 
 # --- ARIMA Model on Residuals ---
-# Use auto_arima to find best ARIMA order for the *training* residuals
+# Use auto_arima to find best ARIMA order for the training residuals
 try:
     auto_arima_model = pm.auto_arima(train_residuals,
                                      start_p=1, start_q=1,
@@ -410,9 +408,9 @@ print(f"Hybrid (LSTM+ARIMA) Model: RMSE={hybrid_metrics['RMSE']:.4f}, MAE={hybri
 
 # --- 6. Forecasting Future SPI ---
 # NOTE: Forecasting beyond the available data (Dec 2023 in this analysis setup)
-# requires forecasting the *input features* (NDVI, Soil Moisture, Precipitation lags)
+# requires forecasting the input features (NDVI, Soil Moisture, Precipitation lags)
 # first, which adds complexity. Here, we'll just show the structure for predicting
-# the *next* step based on the *last available data point*.
+# the next step based on the last available data point.
 
 # Get the last actual data point's features (from the original unscaled df_analysis)
 last_data_point_orig = df_merged.loc[df_analysis.index[-1]].copy() # Get original data before scaling/lagging
@@ -428,7 +426,7 @@ for i in range(n_lags, 1, -1):
     future_features_dict[f'NDVI_lag_{i}'] = last_data_point_orig.get(f'NDVI_lag_{i-1}', 0)
     future_features_dict[f'SM_lag_{i}'] = last_data_point_orig.get(f'SM_lag_{i-1}', 0)
 
-# Use the *actual* last values for lag_1
+# Use the actual last values for lag_1
 future_features_dict['SPI_lag_1'] = last_data_point_orig[target_col]
 future_features_dict['Precip_lag_1'] = last_data_point_orig['Precipitation']
 future_features_dict['NDVI_lag_1'] = last_data_point_orig['NDVI']
@@ -437,7 +435,7 @@ future_features_dict['SM_lag_1'] = last_data_point_orig['Soil_Moisture']
 # Convert to DataFrame and ensure correct order
 future_features_df = pd.DataFrame([future_features_dict])[features] # Select only feature columns in correct order
 
-# Scale future features using the *fitted* scaler
+# Scale future features using the fitted scaler
 future_features_scaled = scaler_features.transform(future_features_df)
 
 # Reshape for LSTM
